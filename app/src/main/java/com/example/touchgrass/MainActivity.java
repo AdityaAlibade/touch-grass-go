@@ -1011,6 +1011,15 @@ public class MainActivity extends AppCompatActivity {
         View journalLayout = binding.layoutJournalTab;
         MaterialCardView cardEmptyJournal = journalLayout.findViewById(R.id.cardEmptyJournal);
         LinearLayout containerEntries = journalLayout.findViewById(R.id.containerJournalEntries);
+        MaterialButton btnExportMarkdown = journalLayout.findViewById(R.id.btnExportMarkdown);
+        MaterialButton btnExportPdf = journalLayout.findViewById(R.id.btnExportPdf);
+
+        if (btnExportMarkdown != null) {
+            btnExportMarkdown.setOnClickListener(v -> handleExportMarkdown());
+        }
+        if (btnExportPdf != null) {
+            btnExportPdf.setOnClickListener(v -> handleExportPdf());
+        }
 
         if (containerEntries == null) return;
 
@@ -1061,6 +1070,56 @@ public class MainActivity extends AppCompatActivity {
 
                 containerEntries.addView(cardView);
             }
+        }
+    }
+
+    /**
+     * Exports the player's IRL adventure log into a GitHub-flavored Markdown file and launches the share sheet.
+     */
+    private void handleExportMarkdown() {
+        try {
+            List<JournalEntry> entries = journalManager.getAllJournalEntries();
+            List<String> titles = progressionManager.getUnlockedTitles();
+            java.io.File file = com.example.touchgrass.journal.AdventureLogExporter.exportMarkdownFile(
+                    this,
+                    DEFAULT_NAME,
+                    progressionManager.getEquippedTitle(),
+                    progressionManager.getCurrentLevel(),
+                    progressionManager.getTotalXp(),
+                    streakManager.getCurrentStreak(),
+                    streakManager.getLongestStreak(),
+                    questRepository.getCompletedQuestIds().size(),
+                    titles,
+                    entries
+            );
+            Toast.makeText(this, R.string.toast_export_success, Toast.LENGTH_SHORT).show();
+            com.example.touchgrass.journal.AdventureLogExporter.shareFile(this, file, "text/markdown", "Share Adventure Log (.md)");
+        } catch (Exception e) {
+            Toast.makeText(this, getString(R.string.toast_export_error, e.getMessage()), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /**
+     * Renders the player's IRL character sheet and completed quests into a printable A4 PDF and launches the share sheet.
+     */
+    private void handleExportPdf() {
+        try {
+            List<JournalEntry> entries = journalManager.getAllJournalEntries();
+            java.io.File file = com.example.touchgrass.journal.AdventureLogExporter.exportPdfFile(
+                    this,
+                    DEFAULT_NAME,
+                    progressionManager.getEquippedTitle(),
+                    progressionManager.getCurrentLevel(),
+                    progressionManager.getTotalXp(),
+                    streakManager.getCurrentStreak(),
+                    streakManager.getLongestStreak(),
+                    questRepository.getCompletedQuestIds().size(),
+                    entries
+            );
+            Toast.makeText(this, R.string.toast_export_success, Toast.LENGTH_SHORT).show();
+            com.example.touchgrass.journal.AdventureLogExporter.shareFile(this, file, "application/pdf", "Share Adventure Log (.pdf)");
+        } catch (Exception e) {
+            Toast.makeText(this, getString(R.string.toast_export_error, e.getMessage()), Toast.LENGTH_LONG).show();
         }
     }
 

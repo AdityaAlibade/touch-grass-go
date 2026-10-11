@@ -22,6 +22,74 @@
             android:textSize="22sp"
             android:textStyle="bold" />
 
+        <!-- Export Action Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardJournalExport"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:cardBackgroundColor="@color/surface_card_dark"
+            app:cardCornerRadius="16dp"
+            app:strokeColor="@color/surface_card_stroke"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.08"
+                    android:text="@string/journal_export_title"
+                    android:textColor="@color/green_accent"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:lineSpacingExtra="2dp"
+                    android:text="@string/journal_export_subtitle"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnExportMarkdown"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:text="@string/btn_export_markdown"
+                        android:textColor="@color/text_primary"
+                        android:textSize="12sp"
+                        app:backgroundTint="@color/surface_card_stroke"
+                        app:cornerRadius="8dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnExportPdf"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:text="@string/btn_export_pdf"
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        app:backgroundTint="@color/green_primary"
+                        app:cornerRadius="8dp" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Empty State Card -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardEmptyJournal"

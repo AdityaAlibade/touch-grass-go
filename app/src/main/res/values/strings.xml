@@ -128,4 +128,12 @@
     <string name="theme_light_name">Daylight Meadow (Light)</string>
     <string name="theme_system_name">System Default</string>
     <string name="btn_toggle_theme">Switch Theme</string>
+
+    <!-- Adventure Log Export -->
+    <string name="journal_export_title">EXPORT ADVENTURE LOG</string>
+    <string name="journal_export_subtitle">Export your character sheet and journey entries as Markdown or a printable PDF.</string>
+    <string name="btn_export_markdown">Export Markdown (.md)</string>
+    <string name="btn_export_pdf">Export PDF (.pdf)</string>
+    <string name="toast_export_success">Export ready! Opening sharing sheet…</string>
+    <string name="toast_export_error">Failed to export adventure log: %1$s</string>
 </resources>

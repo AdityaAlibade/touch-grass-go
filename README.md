@@ -90,10 +90,10 @@ Modern life revolves around glowing glass rectangles. Between desktop workstatio
 | **Quest Safety Validator** | AI / Safety | Keyword and rules-based filter preventing trespassing, foraging/tasting wild items, or dangerous crossings, with XP bounded to 15–50 XP. | ✅ Implemented & Verified |
 | **GPS Proximity Geofencing**| Location | Real-world Haversine proximity checks with configurable radius (200m, 500m, 1000m, or relaxed mode). | ✅ Implemented & Verified |
 | **Dark & Light Themes** | UI / Theme | Persistent theme switcher (*Dark Forest*, *Daylight Meadow*, *System Default*) with dynamic night map tile styling. | ✅ Implemented & Verified |
-| **Unit Test Coverage** | QA | 6 unit test suites testing AI parsing, progression math, streak dates, journal, proximity, and themes. | ✅ Implemented & Verified |
+| **Unit Test Coverage** | QA | 7 unit test suites testing AI parsing, progression math, streak dates, journal, proximity, themes, and exports. | ✅ Implemented & Verified |
+| **Adventure Log Export (MD/PDF)** | Journal | Export character sheet and journey entries to Markdown and printable PDF via Android FileProvider. | ✅ Implemented & Verified |
 | **Real-time Live GPS Tracking** | Navigation | Dynamic location tracking under active outdoor movement. | 🟡 Implemented (Awaiting field verification) |
-| **Adventure Log Export (MD/PDF)** | Journal | Export character sheet and journey entries to Markdown and printable PDF. | 📋 Planned (Step 5) |
-| **Automated UI Espresso Tests** | QA | End-to-end device automated UI tests. | 📋 Planned (Step 6) |
+| **Automated UI Espresso Tests** | QA | End-to-end device automated UI tests (`MainActivityTest.java`) testing navigation, dialogs, and exports. | ✅ Implemented & Verified |
 
 ---
 
@@ -153,6 +153,7 @@ touch-grass-go/
     │   │   │   │   ├── PlayerProfileEntity.java & PlayerProfileDao.java
     │   │   │   │   └── StreakEntity.java & StreakDao.java
     │   │   │   ├── journal/
+    │   │   │   │   ├── AdventureLogExporter.java       # Markdown & PDF exporter with FileProvider share dispatcher
     │   │   │   │   ├── JournalEntry.java               # Journal entry entity
     │   │   │   │   └── JournalManager.java             # Journal history persistence & reflection updater
     │   │   │   ├── location/
@@ -175,14 +176,18 @@ touch-grass-go/
     │   │       ├── menu/bottom_nav_menu.xml            # Bottom navigation tab definitions
     │   │       ├── values/                             # Daylight Meadow colors, strings, themes
     │   │       ├── values-night/                       # Dark Forest colors, night themes
-    │   │       └── xml/                                # Data extraction & backup rules
+    │   │       └── xml/                                # FileProvider paths, backup & extraction rules
     │   └── test/java/com/example/touchgrass/
+    │       ├── AdventureLogExporterTest.java           # Markdown export generation & stats tests
     │       ├── AiQuestParserTest.java                  # AI Quest JSON parser & safety validator tests
     │       ├── ProgressionManagerTest.java             # XP calculation, level thresholds & title unlock tests
     │       ├── StreakManagerTest.java                  # Daily streak calendar logic & resets
     │       ├── JournalManagerTest.java                 # Journal entries & reflection persistence tests
     │       ├── ProximityManagerTest.java               # Haversine distance & geofence boundary tests
     │       └── ThemeManagerTest.java                   # Theme persistence & map coordination tests
+    └── androidTest/java/com/example/touchgrass/
+        ├── ExampleInstrumentedTest.kt              # AndroidX instrumentation package check
+        └── MainActivityTest.java                   # Espresso UI tests for navigation, dialogs, exports
 ```
 
 ---
