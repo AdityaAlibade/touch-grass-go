@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App Branding -->
+    <string name="app_name">TOUCH GRASS</string>
+    <string name="app_subtitle">IRL Character Sheet</string>
+    <string name="app_tagline">“Your screen has side quests. Your actual life should too.”</string>
+
+    <!-- Map & GO Screen Branding -->
+    <string name="map_header_title">TOUCH GRASS GO</string>
+    <string name="map_header_subtitle">India Outdoor Exploration</string>
+    <string name="map_attribution">© OpenStreetMap contributors</string>
+    <string name="map_loading_tiles">Loading map tiles…</string>
+    <string name="map_offline_notice">Offline mode: Network unavailable. Showing cached map view.</string>
+    <string name="map_location_disabled">Location services are turned off on your device.</string>
+    <string name="map_location_denied">Location permission is required to center on your position.</string>
+    <string name="map_location_searching">Searching for current location…</string>
+    <string name="demo_quest_tag">[SAMPLE QUEST - DEMO ONLY]</string>
+    <string name="cd_zoom_in">Zoom In</string>
+    <string name="cd_zoom_out">Zoom Out</string>
+    <string name="cd_my_location">My Location</string>
+
+    <!-- Home Page & Opening Screen -->
+    <string name="nav_home">Home</string>
+    <string name="home_welcome_title">Welcome back, Adventurer!</string>
+    <string name="home_welcome_subtitle">Step outside today and touch actual grass.</string>
+    <string name="home_hero_card_title">CHARACTER OVERVIEW</string>
+    <string name="btn_explore_map">Explore Map</string>
+    <string name="btn_start_quest">Start a Quest</string>
+    <string name="home_quick_actions_title">QUICK ACTIONS</string>
+
+    <!-- AI Quest Generator -->
+    <string name="ai_banner_title">✨ Generate AI Quest</string>
+    <string name="ai_banner_subtitle">Request personalized outdoor side quests tailored by Gemma AI</string>
+    <string name="ai_generator_title">Personalized AI Quests</string>
+    <string name="ai_interests_header">YOUR OUTDOOR INTERESTS</string>
+    <string name="ai_environment_header">ENVIRONMENT TYPE</string>
+    <string name="ai_time_header">AVAILABLE TIME</string>
+    <string name="btn_generate_ai_quest">Generate Quest with Gemma AI</string>
+    <string name="btn_accept_ai_quest">Accept AI Quest</string>
+    <string name="ai_loading_message">Asking Gemma 2 2B open-weight model for safe outdoor quests…</string>
+    <string name="ai_quest_accepted_toast">AI Quest Accepted! Added to active quests and map.</string>
+    <string name="ai_inference_format">Inference: %1$s</string>
+
+    <!-- Quest Board & Lifecycle -->
+    <string name="quest_section_title">QUEST BOARD</string>
+    <string name="quest_active_section">ACTIVE QUESTS</string>
+    <string name="quest_available_section">AVAILABLE QUESTS</string>
+    <string name="quest_completed_section">COMPLETED QUESTS</string>
+    <string name="no_active_quests">No active quests right now. Select an available quest below or tap a marker on the map to accept your next quest!</string>
+    <string name="no_completed_quests">No quests completed yet. Touch grass outdoors to complete your first quest!</string>
+    <string name="btn_accept_quest">Accept Quest</string>
+    <string name="btn_complete_quest">Complete Quest</string>
+    <string name="btn_quest_active">Quest Active (In Progress)</string>
+    <string name="btn_quest_completed">Quest Completed ✓</string>
+    <string name="btn_view_on_map">View on Map</string>
+    <string name="status_format">Status: %1$s</string>
+    <string name="status_available">AVAILABLE</string>
+    <string name="status_active">ACTIVE</string>
+    <string name="status_completed">COMPLETED</string>
+    <string name="quest_accepted_toast">Quest Accepted! Added to your Active Quests tab.</string>
+    <string name="quest_completed_toast">+%1$d XP! Quest Completed!</string>
+    <string name="xp_reward_format">+%1$d XP</string>
+    <string name="quest_desc_format">%1$s\n\n%2$s</string>
+
+    <!-- Self-Reported Completion Confirmation -->
+    <string name="confirm_complete_title">Complete Quest</string>
+    <string name="confirm_complete_message">Did you touch actual grass and complete \"%1$s\" in real life?</string>
+    <string name="confirm_complete_yes">Yes, I completed it!</string>
+    <string name="confirm_complete_no">Not yet</string>
+
+    <!-- Level Up Dialog -->
+    <string name="level_up_title">🎉 LEVEL UP!</string>
+    <string name="level_up_message">Congratulations! You reached Level %1$d!\nTotal XP: %2$d XP</string>
+    <string name="title_unlocked_message">\n\nNew Title Unlocked:\n\"%1$s\"</string>
+
+    <!-- Bottom Navigation -->
+    <string name="nav_map">Map</string>
+    <string name="nav_quests">Quests</string>
+    <string name="nav_character">Character</string>
+    <string name="nav_journal">Journal</string>
+
+    <!-- Character Sheet Section -->
+    <string name="character_section_title">CHARACTER SHEET</string>
+    <string name="character_name">Grass Rookie</string>
+    <string name="character_title">Certified Indoor Goblin</string>
+    <string name="level_format">LVL %1$d</string>
+    <string name="xp_progress_label">XP Progress</string>
+    <string name="xp_format">XP: %1$d / %2$d</string>
+    <string name="completed_quests_count">Quests Completed: %1$d / %2$d</string>
+    <string name="unlocked_titles_section">UNLOCKED TITLES</string>
+    <string name="equipped_tag">EQUIPPED</string>
+    <string name="btn_equip_title">Equip</string>
+    <string name="title_equipped_toast">Title equipped: \"%1$s\"</string>
+    <string name="unlocked_title_format">🏆 %1$s</string>
+    <string name="locked_title_format">🔒 %1$s</string>
+
+    <!-- Daily Streak & Avatar -->
+    <string name="streak_title">🔥 DAILY STREAK</string>
+    <string name="streak_format">Current: %1$d Days | Longest: %2$d Days</string>
+    <string name="streak_subtitle">Complete at least 1 outdoor quest each calendar day to keep your streak glowing!</string>
+    <string name="btn_change_avatar">Change Avatar</string>
+
+    <!-- Journal Section -->
+    <string name="journal_section_title">CHARACTER JOURNAL</string>
+    <string name="journal_empty_title">Adventure Journal Empty</string>
+    <string name="journal_empty_desc">No journal entries yet. Complete your first outdoor quest to begin logging your adventure history!</string>
+    <string name="journal_reflection_label">Personal Reflection:</string>
+    <string name="btn_journal_add_note">Add Note</string>
+    <string name="btn_journal_edit_note">Edit Note</string>
+    <string name="reflection_dialog_title">Personal Outdoor Note</string>
+    <string name="reflection_dialog_hint">What did you experience or see during this quest?</string>
+    <string name="btn_save_note">Save Note</string>
+    <string name="btn_cancel">Cancel</string>
+</resources>
