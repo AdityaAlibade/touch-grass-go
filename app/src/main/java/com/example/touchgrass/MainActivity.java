@@ -112,8 +112,11 @@ public class MainActivity extends AppCompatActivity {
         // Configure osmdroid before layout inflation
         Context ctx = getApplicationContext();
         SharedPreferences prefs = ctx.getSharedPreferences("osmdroid_prefs", Context.MODE_PRIVATE);
+        String customUserAgent = "TouchGrassGo/1.0 (Linux; Android; Nature Exploration RPG; contact: aditya@touchgrass.local)";
+        Configuration.getInstance().setUserAgentValue(customUserAgent);
         Configuration.getInstance().load(ctx, prefs);
-        Configuration.getInstance().setUserAgentValue(getPackageName());
+        Configuration.getInstance().setUserAgentValue(customUserAgent);
+        Configuration.getInstance().save(ctx, prefs);
 
         // Trigger Room SQLite database migration from legacy SharedPreferences
         com.example.touchgrass.db.DataMigrationHelper.checkAndMigrate(this);
@@ -226,8 +229,8 @@ public class MainActivity extends AppCompatActivity {
         FloatingActionButton btnZoomIn = mapLayout.findViewById(R.id.btnZoomIn);
         FloatingActionButton btnZoomOut = mapLayout.findViewById(R.id.btnZoomOut);
 
-        // Configure map properties
-        mapView.setTileSource(TileSourceFactory.MAPNIK);
+        // Configure map properties with outdoor exploration tile source
+        mapView.setTileSource(TileSourceFactory.OpenTopo);
         mapView.setMultiTouchControls(true);
 
         // Set initial view centered on India (Latitude: 20.5937, Longitude: 78.9629)
