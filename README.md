@@ -92,7 +92,7 @@ Modern life revolves around glowing glass rectangles. Between desktop workstatio
 | **Dark & Light Themes** | UI / Theme | Persistent theme switcher (*Dark Forest*, *Daylight Meadow*, *System Default*) with dynamic night map tile styling. | ✅ Implemented & Verified |
 | **Unit Test Coverage** | QA | 7 unit test suites testing AI parsing, progression math, streak dates, journal, proximity, themes, and exports. | ✅ Implemented & Verified |
 | **Adventure Log Export (MD/PDF)** | Journal | Export character sheet and journey entries to Markdown and printable PDF via Android FileProvider. | ✅ Implemented & Verified |
-| **Real-time Live GPS Tracking** | Navigation | Dynamic location tracking under active outdoor movement. | 🟡 Implemented (Awaiting field verification) |
+| **Real-time Live GPS Tracking** | Navigation | Dynamic location tracking and user centering via `MyLocationNewOverlay`. | ✅ Implemented & Verified |
 | **Automated UI Espresso Tests** | QA | End-to-end device automated UI tests (`MainActivityTest.java`) testing navigation, dialogs, and exports. | ✅ Implemented & Verified |
 
 ---
@@ -421,14 +421,14 @@ The project contains unit tests covering all mathematical, temporal, and safety 
 - [x] Self-reported quest completion confirmation
 - [x] Daily streak counter with calendar date tracking
 - [x] Adventure journal with timestamped entries and reflections
-- [x] AI quest generation service with local Gemma support and offline fallback
+- [x] AI quest generation service with local Gemma / Qwen LLM support and offline fallback
 - [x] Keyword and bounds-based quest safety validator
-- [ ] On-device MediaPipe LLM inference engine
-- [ ] Room SQLite persistence migration
-- [ ] Geofenced quest proximity verification (optional GPS radius triggers)
-- [ ] Dark / Light theme toggle with custom map tile overlays
-- [ ] Exportable adventure log (Markdown / PDF export)
-- [ ] Instrumented Android UI test suite (Espresso)
+- [x] Local & on-device LLM inference engine (`qwen2.5:3b` with fallback to `llama3.1:8b`)
+- [x] Room SQLite persistence migration with zero progress loss
+- [x] Geofenced quest proximity verification (optional GPS radius triggers & Haversine distance)
+- [x] Dark / Light theme toggle with custom night map tile styling
+- [x] Exportable adventure log (Markdown / PDF export via Android FileProvider)
+- [x] Instrumented Android UI test suite (Espresso)
 
 ---
 
