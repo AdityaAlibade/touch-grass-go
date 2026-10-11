@@ -86,6 +86,8 @@ public class MainActivity extends AppCompatActivity {
     private StreakManager streakManager;
     private JournalManager journalManager;
     private AvatarManager avatarManager;
+    private com.example.touchgrass.location.ProximityManager proximityManager;
+    private com.example.touchgrass.theme.ThemeManager themeManager;
 
     // Default Starter Character Data
     private static final String DEFAULT_NAME = "Grass Rookie";
@@ -113,6 +115,9 @@ public class MainActivity extends AppCompatActivity {
         Configuration.getInstance().load(ctx, prefs);
         Configuration.getInstance().setUserAgentValue(getPackageName());
 
+        // Trigger Room SQLite database migration from legacy SharedPreferences
+        com.example.touchgrass.db.DataMigrationHelper.checkAndMigrate(this);
+
         // Initialize repositories & managers
         questRepository = QuestRepository.getInstance(this);
         progressionManager = ProgressionManager.getInstance(this);
@@ -120,6 +125,9 @@ public class MainActivity extends AppCompatActivity {
         streakManager = StreakManager.getInstance(this);
         journalManager = JournalManager.getInstance(this);
         avatarManager = AvatarManager.getInstance(this);
+        proximityManager = com.example.touchgrass.location.ProximityManager.getInstance(this);
+        themeManager = com.example.touchgrass.theme.ThemeManager.getInstance(this);
+        com.example.touchgrass.theme.ThemeManager.applyTheme(themeManager.getThemeMode());
 
         // Inflate view binding
         binding = ActivityMainBinding.inflate(getLayoutInflater());
@@ -231,6 +239,10 @@ public class MainActivity extends AppCompatActivity {
         CopyrightOverlay copyrightOverlay = new CopyrightOverlay(this);
         mapView.getOverlays().add(copyrightOverlay);
 
+        // Coordinate OpenStreetMap tiles overlay with current app theme
+        com.example.touchgrass.theme.ThemeManager.coordinateMapTheme(
+                mapView, com.example.touchgrass.theme.ThemeManager.isNightModeActive(this));
+
         // Network check for tile loading state
         checkNetworkAndSetOfflineBanner();
 
@@ -320,6 +332,7 @@ public class MainActivity extends AppCompatActivity {
         TextView tvName = dialogView.findViewById(R.id.tvDialogQuestName);
         TextView tvDesc = dialogView.findViewById(R.id.tvDialogDescription);
         TextView tvStatus = dialogView.findViewById(R.id.tvDialogStatus);
+        TextView tvProximity = dialogView.findViewById(R.id.tvDialogProximity);
         MaterialButton btnAccept = dialogView.findViewById(R.id.btnAcceptQuest);
         MaterialButton btnComplete = dialogView.findViewById(R.id.btnCompleteQuest);
 
@@ -329,6 +342,20 @@ public class MainActivity extends AppCompatActivity {
         tvName.setText(quest.getName());
         String tag = quest.isAiGenerated() ? "[AI GENERATED QUEST]" : getString(R.string.demo_quest_tag);
         tvDesc.setText(getString(R.string.quest_desc_format, quest.getDescription(), tag));
+
+        // Evaluate live proximity if current GPS location is known
+        if (tvProximity != null && myLocationOverlay != null && myLocationOverlay.getMyLocation() != null) {
+            GeoPoint userLoc = myLocationOverlay.getMyLocation();
+            com.example.touchgrass.location.ProximityManager.ProximityResult prox =
+                    proximityManager.evaluateProximity(userLoc.getLatitude(), userLoc.getLongitude(), quest.getLatitude(), quest.getLongitude());
+            tvProximity.setVisibility(View.VISIBLE);
+            tvProximity.setText("📍 " + prox.statusMessage);
+            if (prox.isWithinRadius) {
+                tvProximity.setTextColor(ContextCompat.getColor(this, R.color.green_light));
+            } else {
+                tvProximity.setTextColor(ContextCompat.getColor(this, R.color.gold_rpg));
+            }
+        }
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setView(dialogView)
@@ -378,12 +405,31 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Prompts the user to confirm that they actually completed the outdoor activity in real life.
+     * Prompts the user to confirm that they actually completed the outdoor activity in real life,
+     * checking optional GPS proximity when enabled.
      */
     private void showSelfReportConfirmationDialog(Quest quest) {
+        String confirmMessage;
+        if (proximityManager.isProximityVerificationEnabled()) {
+            GeoPoint userLoc = (myLocationOverlay != null) ? myLocationOverlay.getMyLocation() : null;
+            if (userLoc != null) {
+                com.example.touchgrass.location.ProximityManager.ProximityResult prox =
+                        proximityManager.evaluateProximity(userLoc.getLatitude(), userLoc.getLongitude(), quest.getLatitude(), quest.getLongitude());
+                if (prox.isWithinRadius) {
+                    confirmMessage = "📍 Proximity Verified!\nYou are " + prox.formattedDistance + " away from \"" + quest.getName() + "\".\n\nDid you complete the outdoor activity in real life?";
+                } else {
+                    confirmMessage = "⚠️ Proximity Notice:\nYou are " + prox.formattedDistance + " away from \"" + quest.getName() + "\" (Configured radius: " + proximityManager.getProximityRadiusMeters() + " m).\n\nDo you want to confirm completion via exploration mode anyway?";
+                }
+            } else {
+                confirmMessage = "ℹ️ GPS location currently unavailable.\n\nDid you complete \"" + quest.getName() + "\" in real life?";
+            }
+        } else {
+            confirmMessage = getString(R.string.confirm_complete_message, quest.getName());
+        }
+
         new AlertDialog.Builder(this)
                 .setTitle(R.string.confirm_complete_title)
-                .setMessage(getString(R.string.confirm_complete_message, quest.getName()))
+                .setMessage(confirmMessage)
                 .setPositiveButton(R.string.confirm_complete_yes, (dialog, which) -> handleQuestCompletion(quest))
                 .setNegativeButton(R.string.confirm_complete_no, (dialog, which) -> dialog.dismiss())
                 .show();
@@ -765,6 +811,104 @@ public class MainActivity extends AppCompatActivity {
 
         // Unlocked Titles List / Selector
         refreshUnlockedTitlesSelector(equippedTitle);
+
+        // Proximity Geofencing Status Card
+        if (binding.tvProximityStatus != null && binding.btnConfigureProximity != null) {
+            boolean proxEnabled = proximityManager.isProximityVerificationEnabled();
+            int radius = proximityManager.getProximityRadiusMeters();
+            String proxStatusStr = proxEnabled
+                    ? getString(R.string.proximity_status_on, radius)
+                    : getString(R.string.proximity_status_off);
+            binding.tvProximityStatus.setText(getString(R.string.proximity_enabled_label, proxStatusStr));
+
+            binding.btnConfigureProximity.setOnClickListener(v -> showProximityConfigurationDialog());
+        }
+
+        // App Theme Status Card
+        if (binding.tvCurrentThemeStatus != null && binding.btnSwitchTheme != null) {
+            String currentMode = themeManager.getThemeMode();
+            String modeName;
+            if (com.example.touchgrass.theme.ThemeManager.MODE_LIGHT.equals(currentMode)) {
+                modeName = getString(R.string.theme_light_name);
+            } else if (com.example.touchgrass.theme.ThemeManager.MODE_SYSTEM.equals(currentMode)) {
+                modeName = getString(R.string.theme_system_name);
+            } else {
+                modeName = getString(R.string.theme_dark_name);
+            }
+            binding.tvCurrentThemeStatus.setText(getString(R.string.theme_current_label, modeName));
+
+            binding.btnSwitchTheme.setOnClickListener(v -> showThemeSelectionDialog());
+        }
+    }
+
+    /**
+     * Displays a dialog allowing user to switch between Dark Forest, Daylight Meadow, or System theme.
+     */
+    private void showThemeSelectionDialog() {
+        String[] options = {
+                getString(R.string.theme_dark_name),
+                getString(R.string.theme_light_name),
+                getString(R.string.theme_system_name)
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle("Select App Theme")
+                .setItems(options, (dialog, which) -> {
+                    String chosenMode;
+                    if (which == 0) {
+                        chosenMode = com.example.touchgrass.theme.ThemeManager.MODE_DARK;
+                    } else if (which == 1) {
+                        chosenMode = com.example.touchgrass.theme.ThemeManager.MODE_LIGHT;
+                    } else {
+                        chosenMode = com.example.touchgrass.theme.ThemeManager.MODE_SYSTEM;
+                    }
+
+                    themeManager.setThemeMode(chosenMode);
+                    if (mapView != null) {
+                        com.example.touchgrass.theme.ThemeManager.coordinateMapTheme(
+                                mapView, com.example.touchgrass.theme.ThemeManager.isNightModeActive(this));
+                    }
+                    Toast.makeText(this, "Theme set to " + options[which], Toast.LENGTH_SHORT).show();
+                    refreshCharacterTab();
+                })
+                .setNegativeButton(R.string.btn_cancel, (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
+    /**
+     * Displays a dialog allowing user to configure GPS proximity verification radius or disable it.
+     */
+    private void showProximityConfigurationDialog() {
+        String[] options = {
+                "Disabled (Relaxed Exploration)",
+                "Tight Proximity (200 meters)",
+                "Standard Radius (500 meters)",
+                "Wide Area (1000 meters)"
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle("GPS Proximity Geofencing")
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        proximityManager.setProximityVerificationEnabled(false);
+                        Toast.makeText(this, "Proximity Check disabled (Relaxed Mode)", Toast.LENGTH_SHORT).show();
+                    } else if (which == 1) {
+                        proximityManager.setProximityVerificationEnabled(true);
+                        proximityManager.setProximityRadiusMeters(200);
+                        Toast.makeText(this, "Proximity Check enabled: 200m radius", Toast.LENGTH_SHORT).show();
+                    } else if (which == 2) {
+                        proximityManager.setProximityVerificationEnabled(true);
+                        proximityManager.setProximityRadiusMeters(500);
+                        Toast.makeText(this, "Proximity Check enabled: 500m radius", Toast.LENGTH_SHORT).show();
+                    } else if (which == 3) {
+                        proximityManager.setProximityVerificationEnabled(true);
+                        proximityManager.setProximityRadiusMeters(1000);
+                        Toast.makeText(this, "Proximity Check enabled: 1000m radius", Toast.LENGTH_SHORT).show();
+                    }
+                    refreshCharacterTab();
+                })
+                .setNegativeButton(R.string.btn_cancel, (dialog, which) -> dialog.dismiss())
+                .show();
     }
 
     /**
@@ -1036,6 +1180,8 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         if (mapView != null) {
             mapView.onResume();
+            com.example.touchgrass.theme.ThemeManager.coordinateMapTheme(
+                    mapView, com.example.touchgrass.theme.ThemeManager.isNightModeActive(this));
         }
         checkNetworkAndSetOfflineBanner();
         refreshMapQuestMarkers();

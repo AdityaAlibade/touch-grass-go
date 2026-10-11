@@ -85,14 +85,15 @@ Modern life revolves around glowing glass rectangles. Between desktop workstatio
 | **Avatar Selector** | Character | Switchable character avatars (*Goblin Shield*, *Grass Blade*, *Hero Sparkle*, *Compass Wanderer*) saved locally. | ✅ Implemented & Verified |
 | **Adventure Journal** | History | Chronological log of completed quests with timestamps, XP badges, unlocked titles, and editable reflection notes. | ✅ Implemented & Verified |
 | **Daily Streak Tracker** | Habits | Consecutive day tracking with automatic date boundary checks (`yyyy-MM-dd`) and longest streak record. | ✅ Implemented & Verified |
-| **Local Persistence** | Storage | Instant zero-backend persistence using isolated Android `SharedPreferences` across all domains. | ✅ Implemented & Verified |
-| **AI Quest Generator** | AI / LLM | Local Gemma 2 2B developer inference via HTTP (`10.0.2.2:11434/api/generate`) with automated offline fallback heuristic generator. | ✅ Implemented & Verified |
+| **Room SQLite Database** | Storage | Robust offline persistence with Room 2.6.1 entities & DAOs with automated legacy migration without progress loss. | ✅ Implemented & Verified |
+| **Local LLM Quest Engine** | AI / LLM | High-speed local LLM generation powered by `qwen2.5:3b` with fallback to `llama3.1:8b` and offline heuristic backup. | ✅ Implemented & Verified |
 | **Quest Safety Validator** | AI / Safety | Keyword and rules-based filter preventing trespassing, foraging/tasting wild items, or dangerous crossings, with XP bounded to 15–50 XP. | ✅ Implemented & Verified |
-| **Unit Test Coverage** | QA | 5 unit test suites testing AI parsing, progression math, streak date logic, and journal serialization. | ✅ Implemented & Verified |
+| **GPS Proximity Geofencing**| Location | Real-world Haversine proximity checks with configurable radius (200m, 500m, 1000m, or relaxed mode). | ✅ Implemented & Verified |
+| **Dark & Light Themes** | UI / Theme | Persistent theme switcher (*Dark Forest*, *Daylight Meadow*, *System Default*) with dynamic night map tile styling. | ✅ Implemented & Verified |
+| **Unit Test Coverage** | QA | 6 unit test suites testing AI parsing, progression math, streak dates, journal, proximity, and themes. | ✅ Implemented & Verified |
 | **Real-time Live GPS Tracking** | Navigation | Dynamic location tracking under active outdoor movement. | 🟡 Implemented (Awaiting field verification) |
-| **Local LLM On-Device (Gemma)** | AI / ML | On-device MediaPipe LLM Inference running completely without external host daemon. | 📋 Planned |
-| **Room Database Migration** | Storage | SQLite/Room database layer for large community quest libraries. | 📋 Planned |
-| **Automated UI Espresso Tests** | QA | End-to-end device automated UI tests. | 📋 Planned |
+| **Adventure Log Export (MD/PDF)** | Journal | Export character sheet and journey entries to Markdown and printable PDF. | 📋 Planned (Step 5) |
+| **Automated UI Espresso Tests** | QA | End-to-end device automated UI tests. | 📋 Planned (Step 6) |
 
 ---
 
@@ -107,9 +108,9 @@ Modern life revolves around glowing glass rectangles. Between desktop workstatio
 | **ViewBinding** | Android Gradle Feature | Type-safe XML layout view binding via generated `ActivityMainBinding`. |
 | **Material Components** | `1.12.0` | Material Design UI widgets (`MaterialButton`, `MaterialCardView`, Bottom Navigation). |
 | **Osmdroid Android** | `6.1.20` | Native OpenStreetMap viewer (`MapView`, `Marker`, `MyLocationNewOverlay`) requiring no proprietary API keys. |
-| **SharedPreferences** | Android Jetpack | Key-value and delimited string persistence for offline player data. |
-| **Gemma 2 2B (Dev Endpoint)** | Open-Weight LLM | Local development endpoint (`http://10.0.2.2:11434`) for personalized outdoor quest prompts. |
-| **JUnit 4** | `4.13.2` | Core JVM unit testing framework for domain logic. |
+| **Room Database** | `2.6.1` | SQLite object mapping, DAOs, and seamless migration helper (`room-runtime`, `room-compiler`). |
+| **Local LLM Engine** | Qwen 2.5 3B / Llama 3.1 | Local developer inference (`http://10.0.2.2:11434`) with structured JSON schema and offline fallback. |
+| **JUnit 4** | `4.13.2` | Core JVM unit testing framework for domain and math logic. |
 
 ---
 
@@ -123,7 +124,7 @@ touch-grass-go/
 ├── gradle.properties                   # JVM args & AndroidX flags
 ├── gradlew / gradlew.bat               # Unix & Windows Gradle wrapper executables
 ├── gradle/
-│   ├── libs.versions.toml              # Centralized Gradle version catalog
+│   ├── libs.versions.toml              # Centralized Gradle version catalog (Room 2.6.1, Osmdroid, Material)
 │   ├── gradle-daemon-jvm.properties    # Daemon JVM toolchain configuration
 │   └── wrapper/
 │       ├── gradle-wrapper.jar
@@ -137,38 +138,51 @@ touch-grass-go/
     │   ├── main/
     │   │   ├── AndroidManifest.xml     # Permissions (INTERNET, ACCESS_FINE_LOCATION) & launcher activity
     │   │   ├── java/com/example/touchgrass/
-    │   │   │   ├── MainActivity.java                   # Single-activity controller managing tabs, map & dialogs
+    │   │   │   ├── MainActivity.java                   # Single-activity controller managing tabs, map, themes & dialogs
     │   │   │   ├── ai/
-    │   │   │   │   ├── AiQuestService.java             # Gemma HTTP inference client & fallback quest generator
+    │   │   │   │   ├── AiQuestService.java             # Qwen 2.5 3B / Llama 3.1 HTTP inference client & fallback
     │   │   │   │   ├── QuestGenerationRequest.java     # User preference model (level, duration, environment)
     │   │   │   │   └── QuestSafetyValidator.java       # Safety rules filter & XP boundary sanitizer
     │   │   │   ├── avatar/
-    │   │   │   │   └── AvatarManager.java              # Avatar selection and local preference storage
+    │   │   │   │   └── AvatarManager.java              # Avatar selection and persistence
+    │   │   │   ├── db/
+    │   │   │   │   ├── AppDatabase.java                # Room database definition (SQLite)
+    │   │   │   │   ├── DataMigrationHelper.java        # Non-destructive migration from SharedPreferences to Room
+    │   │   │   │   ├── QuestEntity.java & QuestDao.java
+    │   │   │   │   ├── JournalEntity.java & JournalDao.java
+    │   │   │   │   ├── PlayerProfileEntity.java & PlayerProfileDao.java
+    │   │   │   │   └── StreakEntity.java & StreakDao.java
     │   │   │   ├── journal/
     │   │   │   │   ├── JournalEntry.java               # Journal entry entity
     │   │   │   │   └── JournalManager.java             # Journal history persistence & reflection updater
+    │   │   │   ├── location/
+    │   │   │   │   └── ProximityManager.java           # Haversine distance math & configurable geofencing
     │   │   │   ├── model/
     │   │   │   │   ├── Quest.java                      # Quest data model (coordinates, status, reward)
     │   │   │   │   └── QuestStatus.java                # Enum: AVAILABLE, ACTIVE, COMPLETED
     │   │   │   ├── progression/
     │   │   │   │   └── ProgressionManager.java         # XP math, level thresholds, title unlock evaluator
     │   │   │   ├── repository/
-    │   │   │   │   └── QuestRepository.java            # Seeded demo quests & AI quest persistence
-    │   │   │   └── streak/
-    │   │   │       ├── StreakManager.java              # Calendar day boundary math & streak counter
-    │   │   │       └── StreakResult.java               # Result model of streak evaluation
+    │   │   │   │   └── QuestRepository.java            # Seeded demo quests & AI quest persistence in Room
+    │   │   │   ├── streak/
+    │   │   │   │   ├── StreakManager.java              # Calendar day boundary math & streak counter
+    │   │   │   │   └── StreakResult.java               # Result model of streak evaluation
+    │   │   │   └── theme/
+    │   │   │       └── ThemeManager.java               # Dark/Light/System mode persistence & Map tile styling
     │   │   └── res/
     │   │       ├── drawable/                           # Custom vector drawables & badge backgrounds
     │   │       ├── layout/                             # Modular XML screens & dialog views
     │   │       ├── menu/bottom_nav_menu.xml            # Bottom navigation tab definitions
-    │   │       ├── values/                             # Strings, RPG color palette, app themes
+    │   │       ├── values/                             # Daylight Meadow colors, strings, themes
+    │   │       ├── values-night/                       # Dark Forest colors, night themes
     │   │       └── xml/                                # Data extraction & backup rules
     │   └── test/java/com/example/touchgrass/
-    │       ├── AiQuestParserTest.java                  # Safety validation & fallback generation tests
-    │       ├── ProgressionManagerTest.java             # XP threshold & level calculation tests
-    │       ├── StreakManagerTest.java                  # Calendar day streak calculation tests
-    │       ├── JournalManagerTest.java                 # Journal serialization & reflection update tests
-    │       └── ExampleUnitTest.kt                      # Kotlin unit test template
+    │       ├── AiQuestParserTest.java                  # AI Quest JSON parser & safety validator tests
+    │       ├── ProgressionManagerTest.java             # XP calculation, level thresholds & title unlock tests
+    │       ├── StreakManagerTest.java                  # Daily streak calendar logic & resets
+    │       ├── JournalManagerTest.java                 # Journal entries & reflection persistence tests
+    │       ├── ProximityManagerTest.java               # Haversine distance & geofence boundary tests
+    │       └── ThemeManagerTest.java                   # Theme persistence & map coordination tests
 ```
 
 ---

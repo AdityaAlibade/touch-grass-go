@@ -3,6 +3,10 @@ package com.example.touchgrass.streak;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.example.touchgrass.db.AppDatabase;
+import com.example.touchgrass.db.DataMigrationHelper;
+import com.example.touchgrass.db.StreakEntity;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -10,7 +14,7 @@ import java.util.TimeZone;
 
 /**
  * Manages daily quest completion streaks, consecutive day tracking, date boundaries,
- * and longest streak persistence.
+ * and longest streak persistence using Room SQLite database with legacy SharedPreferences sync & fallback.
  */
 public class StreakManager {
 
@@ -21,12 +25,22 @@ public class StreakManager {
 
     private static StreakManager instance;
     private final SharedPreferences preferences;
+    private final AppDatabase database;
 
     public StreakManager(Context context) {
-        this(context.getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE));
+        Context appCtx = context.getApplicationContext();
+        DataMigrationHelper.checkAndMigrate(appCtx);
+        this.database = AppDatabase.getInstance(appCtx);
+        this.preferences = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
     public StreakManager(SharedPreferences preferences) {
+        this.database = null;
+        this.preferences = preferences;
+    }
+
+    public StreakManager(AppDatabase database, SharedPreferences preferences) {
+        this.database = database;
         this.preferences = preferences;
     }
 
@@ -42,15 +56,27 @@ public class StreakManager {
     }
 
     public int getCurrentStreak() {
-        return preferences.getInt(KEY_CURRENT_STREAK, 0);
+        if (database != null) {
+            StreakEntity streak = database.streakDao().getStreak();
+            if (streak != null) return streak.getCurrentStreak();
+        }
+        return preferences != null ? preferences.getInt(KEY_CURRENT_STREAK, 0) : 0;
     }
 
     public int getLongestStreak() {
-        return preferences.getInt(KEY_LONGEST_STREAK, 0);
+        if (database != null) {
+            StreakEntity streak = database.streakDao().getStreak();
+            if (streak != null) return streak.getLongestStreak();
+        }
+        return preferences != null ? preferences.getInt(KEY_LONGEST_STREAK, 0) : 0;
     }
 
     public String getLastCompletionDate() {
-        return preferences.getString(KEY_LAST_COMPLETION_DATE, null);
+        if (database != null) {
+            StreakEntity streak = database.streakDao().getStreak();
+            if (streak != null) return streak.getLastCompletionDate();
+        }
+        return preferences != null ? preferences.getString(KEY_LAST_COMPLETION_DATE, null) : null;
     }
 
     /**
@@ -94,12 +120,19 @@ public class StreakManager {
             // If dayDiff < 0 (date set backwards), leave streak as is
         }
 
-        // Save updated state
-        preferences.edit()
-                .putString(KEY_LAST_COMPLETION_DATE, dateString)
-                .putInt(KEY_CURRENT_STREAK, currentStreak)
-                .putInt(KEY_LONGEST_STREAK, longestStreak)
-                .apply();
+        // Save updated state in Room
+        if (database != null) {
+            database.streakDao().insertOrUpdateStreak(new StreakEntity(1, currentStreak, longestStreak, dateString));
+        }
+
+        // Save updated state in SharedPreferences for sync
+        if (preferences != null) {
+            preferences.edit()
+                    .putString(KEY_LAST_COMPLETION_DATE, dateString)
+                    .putInt(KEY_CURRENT_STREAK, currentStreak)
+                    .putInt(KEY_LONGEST_STREAK, longestStreak)
+                    .apply();
+        }
 
         return new StreakResult(currentStreak, longestStreak, streakIncremented, streakReset, sameDay);
     }
@@ -134,6 +167,8 @@ public class StreakManager {
      * Clears streak preferences (useful for testing).
      */
     public void clearAll() {
-        preferences.edit().clear().apply();
+        if (preferences != null) {
+            preferences.edit().clear().apply();
+        }
     }
 }

@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Base Dark Fantasy RPG Theme -->
-    <style name="Theme.TouchGrass" parent="Theme.Material3.Dark.NoActionBar">
+    <!-- Base Day/Night Material3 Theme (Day Mode) -->
+    <style name="Theme.TouchGrass" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Primary Brand Colors -->
         <item name="colorPrimary">@color/green_primary</item>
-        <item name="colorOnPrimary">@color/bg_dark_realm</item>
+        <item name="colorOnPrimary">@color/white</item>
         <item name="colorPrimaryContainer">@color/green_dark_badge</item>
         <item name="colorOnPrimaryContainer">@color/green_light</item>
 
         <!-- Secondary & Accent Colors -->
         <item name="colorSecondary">@color/gold_rpg</item>
-        <item name="colorOnSecondary">@color/bg_dark_realm</item>
+        <item name="colorOnSecondary">@color/white</item>
 
         <!-- Background & Surface Colors -->
         <item name="android:colorBackground">@color/bg_dark_realm</item>
@@ -18,6 +18,6 @@
         <!-- System Bar Styling -->
         <item name="android:statusBarColor">@color/bg_dark_realm</item>
         <item name="android:navigationBarColor">@color/bg_dark_realm</item>
-        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>

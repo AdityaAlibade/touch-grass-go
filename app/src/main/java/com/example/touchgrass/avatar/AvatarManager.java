@@ -4,12 +4,15 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import com.example.touchgrass.R;
+import com.example.touchgrass.db.AppDatabase;
+import com.example.touchgrass.db.DataMigrationHelper;
+import com.example.touchgrass.db.PlayerProfileEntity;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Manages character avatar selection and local persistence.
+ * Manages character avatar selection and local persistence with Room database & SharedPreferences sync.
  */
 public class AvatarManager {
 
@@ -18,6 +21,7 @@ public class AvatarManager {
 
     private static AvatarManager instance;
     private final SharedPreferences preferences;
+    private final AppDatabase database;
 
     public static class AvatarOption {
         public final int resId;
@@ -30,7 +34,20 @@ public class AvatarManager {
     }
 
     public AvatarManager(Context context) {
-        this.preferences = context.getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        Context appCtx = context.getApplicationContext();
+        DataMigrationHelper.checkAndMigrate(appCtx);
+        this.database = AppDatabase.getInstance(appCtx);
+        this.preferences = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+    }
+
+    public AvatarManager(SharedPreferences preferences) {
+        this.database = null;
+        this.preferences = preferences;
+    }
+
+    public AvatarManager(AppDatabase database, SharedPreferences preferences) {
+        this.database = database;
+        this.preferences = preferences;
     }
 
     public static synchronized AvatarManager getInstance(Context context) {
@@ -40,12 +57,27 @@ public class AvatarManager {
         return instance;
     }
 
+    public static synchronized void resetInstance() {
+        instance = null;
+    }
+
     public int getEquippedAvatarResId() {
-        return preferences.getInt(KEY_EQUIPPED_AVATAR_RES_ID, R.drawable.ic_character_goblin);
+        if (database != null) {
+            PlayerProfileEntity profile = database.playerProfileDao().getProfile();
+            if (profile != null && profile.getEquippedAvatarResId() != 0) {
+                return profile.getEquippedAvatarResId();
+            }
+        }
+        return preferences != null ? preferences.getInt(KEY_EQUIPPED_AVATAR_RES_ID, R.drawable.ic_character_goblin) : R.drawable.ic_character_goblin;
     }
 
     public void setEquippedAvatarResId(int avatarResId) {
-        preferences.edit().putInt(KEY_EQUIPPED_AVATAR_RES_ID, avatarResId).apply();
+        if (database != null) {
+            database.playerProfileDao().updateAvatar(avatarResId);
+        }
+        if (preferences != null) {
+            preferences.edit().putInt(KEY_EQUIPPED_AVATAR_RES_ID, avatarResId).apply();
+        }
     }
 
     public List<AvatarOption> getAvailableAvatarOptions() {

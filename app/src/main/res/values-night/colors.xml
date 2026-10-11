@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Main Backgrounds & Surfaces (Night / Dark Mode) -->
+    <color name="bg_dark_realm">#0F1511</color>
+    <color name="surface_card_dark">#18221B</color>
+    <color name="surface_card_stroke">#2D3E32</color>
+
+    <!-- RPG Nature Green Accents -->
+    <color name="green_primary">#4CAF50</color>
+    <color name="green_accent">#66BB6A</color>
+    <color name="green_light">#81C784</color>
+    <color name="green_dark_badge">#152E1B</color>
+    <color name="green_dark_badge_stroke">#2A5231</color>
+
+    <!-- RPG Gold & Accent Highlights -->
+    <color name="gold_rpg">#FFC107</color>
+    <color name="gold_rpg_badge_bg">#2A2308</color>
+    <color name="gold_rpg_stroke">#664E00</color>
+
+    <!-- Typography Colors -->
+    <color name="text_primary">#F0F7F2</color>
+    <color name="text_secondary">#A0B2A3</color>
+    <color name="text_disabled">#5C6B5E</color>
+
+    <!-- Quest & Disabled States -->
+    <color name="disabled_card_bg">#131A15</color>
+    <color name="disabled_button_bg">#222D25</color>
+    <color name="disabled_button_stroke">#344438</color>
+
+    <!-- XP Progress Bar -->
+    <color name="xp_bar_track">#101A12</color>
+    <color name="xp_bar_fill">#4CAF50</color>
+
+    <!-- Standard Android Compat Colors -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

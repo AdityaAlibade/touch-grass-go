@@ -20,15 +20,23 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Service for generating personalized outdoor quests using an open-weight Gemma model endpoint,
- * with structured JSON parsing, strict safety validation, and fallback generation.
+ * Service for generating personalized outdoor quests using local Ollama model inference
+ * (powered by Qwen 2.5 3B with fallback support), structured JSON constraints,
+ * safety validation, and deterministic offline fallback generation.
  */
 public class AiQuestService {
 
-    // Local Gemma 2 2B developer inference endpoint (e.g. Ollama dev server or local runtime)
-    private static final String DEFAULT_GEMMA_ENDPOINT = "http://10.0.2.2:11434/api/generate";
-    private static final int TIMEOUT_MS = 4000; // 4 seconds timeout
+    // Default Android emulator loopback endpoint for host machine Ollama daemon
+    public static final String DEFAULT_OLLAMA_ENDPOINT = "http://10.0.2.2:11434/api/generate";
 
+    // Primary and secondary models discovered in local Ollama installation
+    public static final String MODEL_PRIMARY = "qwen2.5:3b";
+    public static final String MODEL_SECONDARY = "llama3.1:8b";
+
+    private static final int TIMEOUT_MS = 6000; // 6 seconds timeout
+
+    private final String endpoint;
+    private final String primaryModel;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     public interface AiCallback {
@@ -36,25 +44,45 @@ public class AiQuestService {
         void onError(String errorMessage);
     }
 
+    public AiQuestService() {
+        this(DEFAULT_OLLAMA_ENDPOINT, MODEL_PRIMARY);
+    }
+
+    public AiQuestService(String endpoint, String primaryModel) {
+        this.endpoint = endpoint;
+        this.primaryModel = primaryModel;
+    }
+
     /**
      * Generates a personalized quest asynchronously on a background thread.
      */
     public void generateQuest(QuestGenerationRequest request, AiCallback callback) {
         executor.execute(() -> {
+            // 1. Attempt primary local model (Qwen 2.5 3B)
             try {
-                // Attempt Gemma open-weight model generation
-                Quest quest = attemptGemmaModelGeneration(request);
+                Quest quest = attemptModelGeneration(request, primaryModel);
                 if (quest != null && QuestSafetyValidator.isSafe(quest)) {
-                    postCallback(() -> callback.onSuccess(quest, "Gemma 2 2B (Local Dev Model)"));
+                    postCallback(() -> callback.onSuccess(quest, "Qwen 2.5 3B (Local Ollama)"));
                     return;
                 }
             } catch (Exception ignored) {
-                // Endpoint offline, timeout, or model uninstalled -> fallback safely
+                // Primary model unavailable or timed out -> attempt secondary fallback
             }
 
-            // Fallback generation: Construct a safe, personalized quest locally
+            // 2. Attempt secondary local model (Llama 3.1 8B)
+            try {
+                Quest quest = attemptModelGeneration(request, MODEL_SECONDARY);
+                if (quest != null && QuestSafetyValidator.isSafe(quest)) {
+                    postCallback(() -> callback.onSuccess(quest, "Llama 3.1 8B (Local Ollama)"));
+                    return;
+                }
+            } catch (Exception ignored) {
+                // Secondary model unavailable -> fall through to deterministic heuristic engine
+            }
+
+            // 3. Deterministic offline fallback engine
             Quest fallbackQuest = buildPersonalizedFallbackQuest(request);
-            postCallback(() -> callback.onSuccess(fallbackQuest, "Gemma Engine (Offline Fallback)"));
+            postCallback(() -> callback.onSuccess(fallbackQuest, "Qwen 2.5 Engine (Offline Fallback)"));
         });
     }
 
@@ -66,8 +94,8 @@ public class AiQuestService {
         }
     }
 
-    private Quest attemptGemmaModelGeneration(QuestGenerationRequest request) throws Exception {
-        URL url = new URL(DEFAULT_GEMMA_ENDPOINT);
+    private Quest attemptModelGeneration(QuestGenerationRequest request, String modelName) throws Exception {
+        URL url = new URL(endpoint);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/json; utf-8");
@@ -78,10 +106,15 @@ public class AiQuestService {
 
         String promptText = String.format(
                 Locale.ROOT,
-                "Generate 1 safe, fun outdoor quest in India for a Level %d player. " +
-                        "Interests: %s. Available time: %d minutes. Environment: %s. " +
-                        "Return ONLY a JSON object with keys: name, description, category, estimatedDuration, difficulty, suggestedXp, safetyNotes. " +
-                        "Do not suggest trespassing, tasting plants, or crossing dangerous roads.",
+                "You are an outdoor mindfulness quest generator for an RPG game in India. " +
+                        "Generate 1 safe, fun, creative outdoor activity for a Level %d player. " +
+                        "Player interests: %s. Available time: %d minutes. Environment: %s. " +
+                        "Output a JSON object with these exact keys: " +
+                        "\"name\" (string), \"description\" (string), \"category\" (string), " +
+                        "\"estimatedDuration\" (string), \"difficulty\" (string), " +
+                        "\"suggestedXp\" (integer between 20 and 45), \"safetyNotes\" (string). " +
+                        "STRICT SAFETY RULES: Do not suggest tasting wild plants, climbing private fences, " +
+                        "crossing busy highways, or disturbing wildlife.",
                 request.getCharacterLevel(),
                 request.getInterestsFormatted(),
                 request.getAvailableMinutes(),
@@ -89,8 +122,9 @@ public class AiQuestService {
         );
 
         JSONObject payload = new JSONObject();
-        payload.put("model", "gemma2:2b");
+        payload.put("model", modelName);
         payload.put("prompt", promptText);
+        payload.put("format", "json"); // Ollama structured JSON schema constraint
         payload.put("stream", false);
 
         try (OutputStream os = conn.getOutputStream()) {
@@ -109,7 +143,7 @@ public class AiQuestService {
                 JSONObject responseJson = new JSONObject(responseStr.toString());
                 String responseText = responseJson.optString("response", "");
 
-                // Extract JSON block from responseText if wrapped in markdown
+                // Extract JSON block from responseText
                 int jsonStart = responseText.indexOf("{");
                 int jsonEnd = responseText.lastIndexOf("}");
                 if (jsonStart >= 0 && jsonEnd > jsonStart) {
@@ -124,17 +158,45 @@ public class AiQuestService {
     }
 
     /**
-     * Parses JSON object into a Quest model instance.
+     * Parses a JSON object into a validated Quest model instance.
      */
     public static Quest parseQuestFromJson(JSONObject questJson, QuestGenerationRequest request) {
-        String name = questJson.optString("name", "✨ AI Outdoor Quest");
-        String description = questJson.optString("description", "Step outside and observe your surroundings thoughtfully.");
-        String category = questJson.optString("category", "Mindfulness");
-        String duration = questJson.optString("estimatedDuration", request.getAvailableMinutes() + " mins");
-        String difficulty = questJson.optString("difficulty", "Easy");
-        int rawXp = questJson.optInt("suggestedXp", 30);
+        String name = questJson != null ? questJson.optString("name", "AI Outdoor Quest") : null;
+        if (name == null || name.trim().isEmpty()) {
+            name = "AI Outdoor Quest";
+        }
+        if (name.startsWith("✨ ")) {
+            name = name.substring(2);
+        }
+
+        String description = questJson != null ? questJson.optString("description", "Step outside and observe your surroundings thoughtfully.") : null;
+        if (description == null || description.trim().isEmpty()) {
+            description = "Step outside and observe your surroundings thoughtfully.";
+        }
+
+        String category = questJson != null ? questJson.optString("category", "Mindfulness") : null;
+        if (category == null || category.trim().isEmpty()) {
+            category = "Mindfulness";
+        }
+
+        int minutes = request != null ? request.getAvailableMinutes() : 10;
+        String duration = questJson != null ? questJson.optString("estimatedDuration", minutes + " mins") : null;
+        if (duration == null || duration.trim().isEmpty()) {
+            duration = minutes + " mins";
+        }
+
+        String difficulty = questJson != null ? questJson.optString("difficulty", "Easy") : null;
+        if (difficulty == null || difficulty.trim().isEmpty()) {
+            difficulty = "Easy";
+        }
+
+        int rawXp = questJson != null ? questJson.optInt("suggestedXp", 30) : 30;
         int sanitizedXp = QuestSafetyValidator.sanitizeXp(rawXp);
-        String safetyNotes = questJson.optString("safetyNotes", "Stay on marked pedestrian paths and stay hydrated.");
+
+        String safetyNotes = questJson != null ? questJson.optString("safetyNotes", "Stay on marked pedestrian paths and stay hydrated.") : null;
+        if (safetyNotes == null || safetyNotes.trim().isEmpty()) {
+            safetyNotes = "Stay on marked pedestrian paths and stay hydrated.";
+        }
 
         String uniqueId = "ai_quest_" + UUID.randomUUID().toString().substring(0, 8);
 
@@ -165,7 +227,7 @@ public class AiQuestService {
         String questDesc;
         String category;
 
-        switch (primaryInterest.toLowerCase()) {
+        switch (primaryInterest.toLowerCase(Locale.ROOT)) {
             case "birds":
                 questName = "✨ AI Quest: Avian Scout";
                 questDesc = "Find a quiet spot in a " + request.getEnvironmentType() + " and observe bird movements for " + request.getAvailableMinutes() + " minutes. Count how many species pass by.";
@@ -199,7 +261,7 @@ public class AiQuestService {
                 request.getAvailableMinutes() + " mins",
                 "Easy",
                 30,
-                20.5937, 78.9629, // Center coordinates
+                20.5937, 78.9629, // India center coordinates
                 QuestStatus.AVAILABLE,
                 true,
                 "Stay on safe pedestrian walkways. Respect local flora and fauna."

@@ -92,6 +92,18 @@
             tools:text="Status: AVAILABLE" />
     </LinearLayout>
 
+    <!-- Proximity Indicator -->
+    <TextView
+        android:id="@+id/tvDialogProximity"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:drawablePadding="6dp"
+        android:textColor="@color/green_light"
+        android:textSize="13sp"
+        android:visibility="gone"
+        tools:text="📍 350 m away • Within quest area" />
+
     <!-- Action Buttons -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnAcceptQuest"

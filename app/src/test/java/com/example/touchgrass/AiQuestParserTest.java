@@ -67,4 +67,24 @@ public class AiQuestParserTest {
         assertTrue(fallback.isAiGenerated());
         assertTrue(QuestSafetyValidator.isSafe(fallback));
     }
+
+    @Test
+    public void testParseQuestFromJson() throws Exception {
+        org.json.JSONObject mockJson = new org.json.JSONObject();
+        mockJson.put("name", "Banyan Canopy Contemplation");
+        mockJson.put("description", "Find a banyan or neem tree in your neighborhood and study its aerial roots or canopy structure.");
+        mockJson.put("category", "Nature Mindfulness");
+        mockJson.put("estimatedDuration", "15 mins");
+        mockJson.put("difficulty", "Easy");
+        mockJson.put("suggestedXp", 35);
+        mockJson.put("safetyNotes", "Stay on clear pedestrian footpaths.");
+
+        QuestGenerationRequest req = new QuestGenerationRequest(1, Collections.singletonList("Nature"), 15, "Park / Garden");
+        Quest quest = AiQuestService.parseQuestFromJson(mockJson, req);
+
+        assertNotNull(quest);
+        assertTrue(quest.getName().contains("AI"));
+        assertTrue(quest.isAiGenerated());
+        assertTrue(QuestSafetyValidator.isSafe(quest));
+    }
 }

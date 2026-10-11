@@ -3,6 +3,9 @@ package com.example.touchgrass.repository;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.example.touchgrass.db.AppDatabase;
+import com.example.touchgrass.db.DataMigrationHelper;
+import com.example.touchgrass.db.QuestEntity;
 import com.example.touchgrass.model.Quest;
 import com.example.touchgrass.model.QuestStatus;
 
@@ -15,7 +18,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Repository for managing local demo quests and persisting quest statuses & AI-generated quests using SharedPreferences.
+ * Repository for managing quests in Touch Grass Go.
+ * Uses Room SQLite database as primary persistence with legacy SharedPreferences sync & fallback.
  */
 public class QuestRepository {
 
@@ -26,12 +30,22 @@ public class QuestRepository {
 
     private static QuestRepository instance;
     private final SharedPreferences preferences;
+    private final AppDatabase database;
 
     private QuestRepository(Context context) {
-        this(context.getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE));
+        Context appCtx = context.getApplicationContext();
+        DataMigrationHelper.checkAndMigrate(appCtx);
+        this.database = AppDatabase.getInstance(appCtx);
+        this.preferences = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
     public QuestRepository(SharedPreferences preferences) {
+        this.database = null;
+        this.preferences = preferences;
+    }
+
+    public QuestRepository(AppDatabase database, SharedPreferences preferences) {
+        this.database = database;
         this.preferences = preferences;
     }
 
@@ -53,6 +67,18 @@ public class QuestRepository {
      * Gets all quests (both predefined and persisted AI-generated quests).
      */
     public List<Quest> getAllQuests() {
+        if (database != null) {
+            List<QuestEntity> entities = database.questDao().getAllQuests();
+            if (entities != null && !entities.isEmpty()) {
+                List<Quest> quests = new ArrayList<>();
+                for (QuestEntity entity : entities) {
+                    quests.add(entity.toQuest());
+                }
+                return quests;
+            }
+        }
+
+        // Fallback / legacy path using SharedPreferences
         Set<String> activeIds = getActiveQuestIds();
         Set<String> completedIds = getCompletedQuestIds();
         List<Quest> quests = new ArrayList<>();
@@ -131,29 +157,36 @@ public class QuestRepository {
     }
 
     /**
-     * Persists an AI-generated quest to SharedPreferences.
+     * Persists an AI-generated quest to Room and SharedPreferences.
      */
     public void saveAiQuest(Quest quest) {
         if (quest == null) return;
-        try {
-            String jsonStr = preferences.getString(KEY_AI_QUESTS_JSON, "[]");
-            JSONArray array = new JSONArray(jsonStr);
 
-            JSONObject obj = new JSONObject();
-            obj.put("id", quest.getId());
-            obj.put("name", quest.getName());
-            obj.put("desc", quest.getDescription());
-            obj.put("cat", quest.getCategory());
-            obj.put("dur", quest.getEstimatedDuration());
-            obj.put("diff", quest.getDifficulty());
-            obj.put("xp", quest.getXpReward());
-            obj.put("lat", quest.getLatitude());
-            obj.put("lng", quest.getLongitude());
-            obj.put("safety", quest.getSafetyNotes());
+        if (database != null) {
+            database.questDao().insertQuest(QuestEntity.fromQuest(quest));
+        }
 
-            array.put(obj);
-            preferences.edit().putString(KEY_AI_QUESTS_JSON, array.toString()).apply();
-        } catch (Exception ignored) {}
+        if (preferences != null) {
+            try {
+                String jsonStr = preferences.getString(KEY_AI_QUESTS_JSON, "[]");
+                JSONArray array = new JSONArray(jsonStr);
+
+                JSONObject obj = new JSONObject();
+                obj.put("id", quest.getId());
+                obj.put("name", quest.getName());
+                obj.put("desc", quest.getDescription());
+                obj.put("cat", quest.getCategory());
+                obj.put("dur", quest.getEstimatedDuration());
+                obj.put("diff", quest.getDifficulty());
+                obj.put("xp", quest.getXpReward());
+                obj.put("lat", quest.getLatitude());
+                obj.put("lng", quest.getLongitude());
+                obj.put("safety", quest.getSafetyNotes());
+
+                array.put(obj);
+                preferences.edit().putString(KEY_AI_QUESTS_JSON, array.toString()).apply();
+            } catch (Exception ignored) {}
+        }
     }
 
     /**
@@ -161,6 +194,7 @@ public class QuestRepository {
      */
     public List<Quest> getSavedAiQuests(Set<String> activeIds, Set<String> completedIds) {
         List<Quest> aiList = new ArrayList<>();
+        if (preferences == null) return aiList;
         try {
             String jsonStr = preferences.getString(KEY_AI_QUESTS_JSON, "[]");
             JSONArray array = new JSONArray(jsonStr);
@@ -185,7 +219,7 @@ public class QuestRepository {
     }
 
     /**
-     * Persists a quest as accepted/active in SharedPreferences.
+     * Persists a quest as accepted/active in Room and SharedPreferences.
      */
     public boolean acceptQuest(String questId) {
         Set<String> activeIds = new HashSet<>(getActiveQuestIds());
@@ -196,11 +230,15 @@ public class QuestRepository {
             return false;
         }
 
+        if (database != null) {
+            database.questDao().updateQuestStatus(questId, QuestStatus.ACTIVE.name());
+        }
+
         boolean added = activeIds.add(questId);
-        if (added) {
+        if (added && preferences != null) {
             preferences.edit().putStringSet(KEY_ACTIVE_QUEST_IDS, activeIds).apply();
         }
-        return added;
+        return true;
     }
 
     /**
@@ -215,10 +253,14 @@ public class QuestRepository {
             return false;
         }
 
+        if (database != null) {
+            database.questDao().markQuestCompleted(questId, System.currentTimeMillis());
+        }
+
         boolean added = completedIds.add(questId);
         activeIds.remove(questId);
 
-        if (added) {
+        if (added && preferences != null) {
             preferences.edit()
                     .putStringSet(KEY_COMPLETED_QUEST_IDS, completedIds)
                     .putStringSet(KEY_ACTIVE_QUEST_IDS, activeIds)
@@ -228,17 +270,23 @@ public class QuestRepository {
     }
 
     /**
-     * Retrieves the set of accepted quest IDs from SharedPreferences.
+     * Retrieves the set of accepted quest IDs.
      */
     public Set<String> getActiveQuestIds() {
-        return preferences.getStringSet(KEY_ACTIVE_QUEST_IDS, new HashSet<>());
+        if (database != null) {
+            return new HashSet<>(database.questDao().getActiveQuestIds());
+        }
+        return preferences != null ? preferences.getStringSet(KEY_ACTIVE_QUEST_IDS, new HashSet<>()) : new HashSet<>();
     }
 
     /**
-     * Retrieves the set of completed quest IDs from SharedPreferences.
+     * Retrieves the set of completed quest IDs.
      */
     public Set<String> getCompletedQuestIds() {
-        return preferences.getStringSet(KEY_COMPLETED_QUEST_IDS, new HashSet<>());
+        if (database != null) {
+            return new HashSet<>(database.questDao().getCompletedQuestIds());
+        }
+        return preferences != null ? preferences.getStringSet(KEY_COMPLETED_QUEST_IDS, new HashSet<>()) : new HashSet<>();
     }
 
     /**
@@ -281,9 +329,11 @@ public class QuestRepository {
     }
 
     /**
-     * Clears repository preferences (useful for testing or reset).
+     * Clears repository preferences and database (useful for testing or reset).
      */
     public void clearAll() {
-        preferences.edit().clear().apply();
+        if (preferences != null) {
+            preferences.edit().clear().apply();
+        }
     }
 }

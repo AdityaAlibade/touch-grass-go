@@ -3,6 +3,10 @@ package com.example.touchgrass.journal;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.example.touchgrass.db.AppDatabase;
+import com.example.touchgrass.db.DataMigrationHelper;
+import com.example.touchgrass.db.JournalEntity;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -10,8 +14,8 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Manages adventure journal persistence using SharedPreferences.
- * Uses pure Java string serialization for 100% compatibility across Android and JVM unit tests.
+ * Manages adventure journal persistence using Room SQLite database as primary source
+ * with legacy SharedPreferences sync & fallback.
  */
 public class JournalManager {
 
@@ -22,12 +26,22 @@ public class JournalManager {
 
     private static JournalManager instance;
     private final SharedPreferences preferences;
+    private final AppDatabase database;
 
     public JournalManager(Context context) {
-        this(context.getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE));
+        Context appCtx = context.getApplicationContext();
+        DataMigrationHelper.checkAndMigrate(appCtx);
+        this.database = AppDatabase.getInstance(appCtx);
+        this.preferences = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
     public JournalManager(SharedPreferences preferences) {
+        this.database = null;
+        this.preferences = preferences;
+    }
+
+    public JournalManager(AppDatabase database, SharedPreferences preferences) {
+        this.database = database;
         this.preferences = preferences;
     }
 
@@ -46,7 +60,19 @@ public class JournalManager {
      * Retrieves all journal entries sorted chronologically (newest first).
      */
     public List<JournalEntry> getAllJournalEntries() {
+        if (database != null) {
+            List<JournalEntity> entities = database.journalDao().getAllEntries();
+            if (entities != null && !entities.isEmpty()) {
+                List<JournalEntry> entries = new ArrayList<>();
+                for (JournalEntity entity : entities) {
+                    entries.add(entity.toJournalEntry());
+                }
+                return entries;
+            }
+        }
+
         List<JournalEntry> entries = new ArrayList<>();
+        if (preferences == null) return entries;
         String rawData = preferences.getString(KEY_JOURNAL_RAW_DATA, "");
 
         if (rawData == null || rawData.trim().isEmpty()) {
@@ -76,16 +102,23 @@ public class JournalManager {
             return false; // Already recorded
         }
 
-        String rawData = preferences.getString(KEY_JOURNAL_RAW_DATA, "");
-        String serialized = serializeEntry(entry);
-
-        if (rawData != null && !rawData.isEmpty()) {
-            rawData = rawData + ENTRY_DELIMITER + serialized;
-        } else {
-            rawData = serialized;
+        if (database != null) {
+            database.journalDao().insertEntry(JournalEntity.fromJournalEntry(entry));
         }
 
-        preferences.edit().putString(KEY_JOURNAL_RAW_DATA, rawData).apply();
+        if (preferences != null) {
+            String rawData = preferences.getString(KEY_JOURNAL_RAW_DATA, "");
+            String serialized = serializeEntry(entry);
+
+            if (rawData != null && !rawData.isEmpty()) {
+                rawData = rawData + ENTRY_DELIMITER + serialized;
+            } else {
+                rawData = serialized;
+            }
+
+            preferences.edit().putString(KEY_JOURNAL_RAW_DATA, rawData).apply();
+        }
+
         return true;
     }
 
@@ -94,33 +127,43 @@ public class JournalManager {
      */
     public boolean updateReflection(String questId, String reflection) {
         if (questId == null) return false;
-        List<JournalEntry> currentList = getAllJournalEntries();
+
         boolean updated = false;
 
-        // Reconstruct entries with updated reflection (chronological order)
-        List<JournalEntry> updatedList = new ArrayList<>();
-        for (int i = currentList.size() - 1; i >= 0; i--) {
-            JournalEntry e = currentList.get(i);
-            if (questId.equals(e.getQuestId())) {
-                e.setReflection(reflection != null ? reflection : "");
-                updated = true;
-            }
-            updatedList.add(e);
+        if (database != null) {
+            database.journalDao().updateReflection(questId, reflection != null ? reflection : "");
+            updated = true;
         }
 
-        if (updated) {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < updatedList.size(); i++) {
-                if (i > 0) sb.append(ENTRY_DELIMITER);
-                sb.append(serializeEntry(updatedList.get(i)));
+        if (preferences != null) {
+            List<JournalEntry> currentList = getAllJournalEntries();
+            List<JournalEntry> updatedList = new ArrayList<>();
+            for (int i = currentList.size() - 1; i >= 0; i--) {
+                JournalEntry e = currentList.get(i);
+                if (questId.equals(e.getQuestId())) {
+                    e.setReflection(reflection != null ? reflection : "");
+                    updated = true;
+                }
+                updatedList.add(e);
             }
-            preferences.edit().putString(KEY_JOURNAL_RAW_DATA, sb.toString()).apply();
+
+            if (updated) {
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < updatedList.size(); i++) {
+                    if (i > 0) sb.append(ENTRY_DELIMITER);
+                    sb.append(serializeEntry(updatedList.get(i)));
+                }
+                preferences.edit().putString(KEY_JOURNAL_RAW_DATA, sb.toString()).apply();
+            }
         }
 
         return updated;
     }
 
     public boolean hasJournalEntryForQuest(String questId) {
+        if (database != null) {
+            return database.journalDao().getEntryByQuestId(questId) != null;
+        }
         for (JournalEntry entry : getAllJournalEntries()) {
             if (questId.equals(entry.getQuestId())) {
                 return true;
@@ -180,6 +223,8 @@ public class JournalManager {
      * Clears journal preferences (useful for testing).
      */
     public void clearAll() {
-        preferences.edit().clear().apply();
+        if (preferences != null) {
+            preferences.edit().clear().apply();
+        }
     }
 }

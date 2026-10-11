@@ -111,4 +111,21 @@
     <string name="reflection_dialog_hint">What did you experience or see during this quest?</string>
     <string name="btn_save_note">Save Note</string>
     <string name="btn_cancel">Cancel</string>
+
+    <!-- Proximity Geofencing -->
+    <string name="proximity_section_title">GPS PROXIMITY CHECK (OPTIONAL)</string>
+    <string name="proximity_card_subtitle">Verify real-world proximity before completing outdoor quests.</string>
+    <string name="proximity_enabled_label">Proximity Verification: %1$s</string>
+    <string name="proximity_status_on">ON (%1$d m)</string>
+    <string name="proximity_status_off">OFF (Relaxed Mode)</string>
+    <string name="btn_toggle_proximity">Configure Proximity</string>
+
+    <!-- Theme Settings -->
+    <string name="theme_section_title">APP THEME &amp; MAP STYLING</string>
+    <string name="theme_card_subtitle">Switch between Dark Forest, Daylight Meadow, or System Default.</string>
+    <string name="theme_current_label">Current Theme: %1$s</string>
+    <string name="theme_dark_name">Dark Forest (Night)</string>
+    <string name="theme_light_name">Daylight Meadow (Light)</string>
+    <string name="theme_system_name">System Default</string>
+    <string name="btn_toggle_theme">Switch Theme</string>
 </resources>

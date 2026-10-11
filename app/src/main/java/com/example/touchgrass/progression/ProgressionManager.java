@@ -3,17 +3,19 @@ package com.example.touchgrass.progression;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.example.touchgrass.db.AppDatabase;
+import com.example.touchgrass.db.DataMigrationHelper;
+import com.example.touchgrass.db.PlayerProfileEntity;
 import com.example.touchgrass.model.Quest;
 import com.example.touchgrass.model.QuestStatus;
 import com.example.touchgrass.repository.QuestRepository;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 /**
  * ProgressionManager handles XP, leveling, thresholds, titles, and persistence.
- * Separated from UI code for testability.
+ * Uses Room SQLite database as primary source of truth with SharedPreferences sync & fallback.
  */
 public class ProgressionManager {
 
@@ -31,12 +33,24 @@ public class ProgressionManager {
     private static ProgressionManager instance;
     private final SharedPreferences preferences;
     private final QuestRepository questRepository;
+    private final AppDatabase database;
 
     public ProgressionManager(Context context, QuestRepository questRepository) {
-        this(context.getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE), questRepository);
+        Context appCtx = context.getApplicationContext();
+        DataMigrationHelper.checkAndMigrate(appCtx);
+        this.database = AppDatabase.getInstance(appCtx);
+        this.preferences = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        this.questRepository = questRepository;
     }
 
     public ProgressionManager(SharedPreferences preferences, QuestRepository questRepository) {
+        this.database = null;
+        this.preferences = preferences;
+        this.questRepository = questRepository;
+    }
+
+    public ProgressionManager(AppDatabase database, SharedPreferences preferences, QuestRepository questRepository) {
+        this.database = database;
         this.preferences = preferences;
         this.questRepository = questRepository;
     }
@@ -56,12 +70,6 @@ public class ProgressionManager {
 
     /**
      * Calculates character level based on total cumulative XP.
-     * Thresholds:
-     * - Level 1: 0 XP
-     * - Level 2: 100 XP
-     * - Level 3: 250 XP
-     * - Level 4: 450 XP
-     * - Level 5: 700 XP
      */
     public static int calculateLevel(int totalXp) {
         if (totalXp < 0) return 1;
@@ -72,9 +80,6 @@ public class ProgressionManager {
         return 5 + (totalXp - 700) / 300;
     }
 
-    /**
-     * Returns total XP required for the start of the specified level.
-     */
     public static int getLevelBaseXp(int level) {
         if (level <= 1) return 0;
         if (level == 2) return 100;
@@ -84,9 +89,6 @@ public class ProgressionManager {
         return 700 + (level - 5) * 300;
     }
 
-    /**
-     * Returns total XP required to reach the NEXT level.
-     */
     public static int getNextLevelThreshold(int currentLevel) {
         return getLevelBaseXp(currentLevel + 1);
     }
@@ -94,7 +96,13 @@ public class ProgressionManager {
     // ================= PROGRESSION & PERSISTENCE =================
 
     public int getTotalXp() {
-        return preferences.getInt(KEY_TOTAL_XP, 0);
+        if (database != null) {
+            PlayerProfileEntity profile = database.playerProfileDao().getProfile();
+            if (profile != null) {
+                return profile.getTotalXp();
+            }
+        }
+        return preferences != null ? preferences.getInt(KEY_TOTAL_XP, 0) : 0;
     }
 
     public int getCurrentLevel() {
@@ -102,12 +110,23 @@ public class ProgressionManager {
     }
 
     public String getEquippedTitle() {
-        return preferences.getString(KEY_EQUIPPED_TITLE, TITLE_DEFAULT);
+        if (database != null) {
+            PlayerProfileEntity profile = database.playerProfileDao().getProfile();
+            if (profile != null && profile.getEquippedTitle() != null) {
+                return profile.getEquippedTitle();
+            }
+        }
+        return preferences != null ? preferences.getString(KEY_EQUIPPED_TITLE, TITLE_DEFAULT) : TITLE_DEFAULT;
     }
 
     public boolean setEquippedTitle(String title) {
         if (getUnlockedTitles().contains(title)) {
-            preferences.edit().putString(KEY_EQUIPPED_TITLE, title).apply();
+            if (database != null) {
+                database.playerProfileDao().updateTitle(title);
+            }
+            if (preferences != null) {
+                preferences.edit().putString(KEY_EQUIPPED_TITLE, title).apply();
+            }
             return true;
         }
         return false;
@@ -160,8 +179,15 @@ public class ProgressionManager {
         int newLevel = calculateLevel(newXp);
         boolean leveledUp = newLevel > previousLevel;
 
-        // Save new XP
-        preferences.edit().putInt(KEY_TOTAL_XP, newXp).apply();
+        // Save new XP in Room
+        if (database != null) {
+            database.playerProfileDao().updateTotalXp(newXp);
+        }
+
+        // Save in SharedPreferences for legacy sync
+        if (preferences != null) {
+            preferences.edit().putInt(KEY_TOTAL_XP, newXp).apply();
+        }
 
         // Check newly unlocked titles
         int newCompletedCount = questRepository.getCompletedQuestIds().size();
@@ -189,7 +215,9 @@ public class ProgressionManager {
      * Clears progression data (useful for testing or reset).
      */
     public void clearAll() {
-        preferences.edit().clear().apply();
+        if (preferences != null) {
+            preferences.edit().clear().apply();
+        }
     }
 
     // ================= RESULT MODEL =================
